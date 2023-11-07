@@ -1,0 +1,15 @@
+.. toctree::
+   :maxdepth: 2
+
+   intro
+   overview
+   tutorial
+   mpi4py.futures
+   mpi4py.run
+   citing
+   install
+   appendix
+
+.. Local Variables:
+.. mode: rst
+.. End:

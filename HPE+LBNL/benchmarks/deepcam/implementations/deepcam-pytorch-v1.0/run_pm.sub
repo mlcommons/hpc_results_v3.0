@@ -1,0 +1,64 @@
+#!/bin/bash
+#SBATCH -C gpu
+#SBATCH -J mlperf-deepcam-pm
+#SBATCH --gpus-per-node 4
+#SBATCH --image nvcr.io/nvdlfwea/mlperfhpc_v10/deepcam:optimized-21.09
+#SBATCH --exclusive
+
+set -euxo pipefail
+
+env | grep SLURM
+
+# Vars with defaults
+: "${NEXP:=1}"
+: "${DATESTAMP:=$(date +'%y%m%d%H%M%S%N')}"
+: "${DATADIR:=/pscratch/sd/s/sfarrell/deepcam-hpc-v1.0/data/All-Hist/numpy}"
+: "${LOGDIR:=$SCRATCH/deepcam-hpc-v1.0/results/${SLURM_JOB_NAME}-${SLURM_JOB_ID}}"
+: "${OUTPUT_ROOT:=${LOGDIR}}" # temporary output directory before cleanup
+: "${NCCL_ASYNC_ERROR_HANDLING:=0}"
+export WIREUP_METHOD=${WIREUP_METHOD:-"nccl-slurm"}
+
+export OUTPUT_ROOT
+export NCCL_ASYNC_ERROR_HANDLING
+export NCCL_DEBUG=WARN
+
+# compute number of total ranks
+TOTALGPU=$(( ${SLURM_JOB_NUM_NODES} * ${DGXNGPU} ))
+echo "TOTALGPU: $TOTALGPU"
+
+# determine the wireup method
+if [ "${TOTALGPU}" -eq 1 ]; then
+    export WIREUP_METHOD="dummy"
+fi
+
+# Other vars
+readonly _seed_override=${SEED:-}
+_cont_mounts="${DATADIR}:/data:ro"
+
+# Setup directories
+mkdir -p "${LOGDIR}"
+
+# Run the dummy cuda app to "fix" cuda init errors
+if [ ! -f ./dummy ]; then
+    echo "int main() {cudaFree(0);}" > dummy.cu && nvcc -o dummy dummy.cu
+fi
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --ntasks-per-node=1 ./dummy
+
+# Run experiments
+for _experiment_index in $(seq 1 "${NEXP}"); do
+    (
+	echo "Beginning trial ${_experiment_index} of ${NEXP}"
+
+	# Set Vars
+	export SEED=${_seed_override:-$(date +%s)}
+	export EXP_ID=${_experiment_index}
+	export DATESTAMP=${DATESTAMP}
+
+        # Run experiment
+	srun --wait=120 --kill-on-bad-exit=0 --cpu-bind=none --mpi=pmi2 \
+            --ntasks="${TOTALGPU}" --ntasks-per-node="${DGXNGPU}" \
+            shifter --volume="${_cont_mounts}" --module gpu \
+            bash ./run_and_time.sh
+    )
+done
+wait

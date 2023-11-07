@@ -1,0 +1,63 @@
+#!/bin/bash
+#SBATCH -C gpu
+#SBATCH -J mlperf-cosmoflow-pm
+#SBATCH --gpus-per-node 4
+#SBATCH --image nvcr.io/nvdlfwea/mlperfhpc_v10/cosmoflow:21.09
+#SBATCH --exclusive
+
+set -euxo pipefail
+
+
+# Vars with defaults
+: "${NEXP:=1}"
+: "${DATESTAMP:=$(date +'%y%m%d%H%M%S%N')}"
+: "${DATADIR:=/pscratch/sd/s/sfarrell/cosmoflow-hpc-v1.0/data/cosmoUniverse_2019_05_4parE_tf_v2_numpy}"
+: "${LOGDIR:=$SCRATCH/cosmoflow-hpc-v1.0/results/${SLURM_JOB_NAME}-${SLURM_JOB_ID}}"
+: "${COPY_DATASET:=}"
+: "${API_LOG_DIR:=./api_logs}" # apiLog.sh output dir
+: "${STAGING_DIR:=/tmp/}"
+
+# Checkpoint output path
+export SAVE_CHECKPOINT=${SAVE_CHECKPOINT:-"${LOGDIR}/checkpoint.data"}
+
+#echo $COPY_DATASET
+#
+#if [ ! -z $COPY_DATASET ]; then
+#  readonly copy_datadir=$COPY_DATASET
+#  srun --ntasks-per-node=1 mkdir -p "${DATADIR}"
+#  srun --ntasks-per-node=1 ${CODEDIR}/copy-data.sh "${copy_datadir}" "${DATADIR}"
+#  srun --ntasks-per-node=1 bash -c "ls ${DATADIR}"
+#fi
+
+# Other vars
+readonly _seed_override=${SEED:-}
+readonly _logfile_base="${LOGDIR}/${DATESTAMP}"
+_cont_mounts="${DATADIR}:/data;${LOGDIR}:/results;${STAGING_DIR}:/staging_area"
+
+export DATESTAMP
+
+# Setup directories
+mkdir -p "${LOGDIR}"
+
+# Run the dummy cuda app to "fix" cuda init errors
+if [ ! -f ./dummy ]; then
+    echo "int main() {cudaFree(0);}" > dummy.cu && nvcc -o dummy dummy.cu
+fi
+srun --ntasks="${SLURM_JOB_NUM_NODES}" --ntasks-per-node=1 ./dummy
+
+# Run experiments
+for _experiment_index in $(seq 1 "${NEXP}"); do
+    (
+        echo "Beginning trial ${_experiment_index} of ${NEXP}"
+
+        # Run experiment
+        export SEED=${_seed_override:-$RANDOM}
+        export EXPERIMENT_ID=$_experiment_index
+	srun --kill-on-bad-exit=0 --mpi=pmi2 --cpu-bind=none \
+            --ntasks="$(( SLURM_JOB_NUM_NODES * DGXNGPU ))" \
+            --ntasks-per-node="${DGXNGPU}" \
+            shifter --volume="${_cont_mounts}" --module gpu \
+	    bash ./run_and_time.sh
+
+    )
+done

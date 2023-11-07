@@ -1,0 +1,73 @@
+output_dir: results/cosmo-000
+
+mlperf:
+    org: Fujitsu
+    division: open
+    status: cloud
+    platform: fugaku_A64FX_tensorflow
+    poc_name: Akihiro Tabuchi
+    poc_email: tabuchi.akihiro@fujitsu.com
+
+data:
+    name: cosmo
+    #compression: GZIP
+    n_train: 524288
+    n_valid: 65536
+    sample_shape: [128, 128, 128, 4]
+    batch_size: 1
+    n_epochs: 60
+    shard: True
+    apply_log: True
+    prefetch: 1
+    #use_cache: True
+    #cache_as_fp32: True
+
+model:
+    name: mesh_cosmoflow
+    input_shape: [128, 128, 128, 4]
+    kernel_size: 2
+    target_size: 4
+    conv_size: 32
+    fc1_size: 128
+    fc2_size: 64
+    hidden_activation: LeakyReLU
+    pooling_type: MaxPool3D
+    dropout: 0.0
+    mesh_shape: [1,1]
+
+optimizer:
+    name: SGD
+    momentum: 0.9
+    weight_decay: 0.02
+
+lr_schedule:
+    # Standard linear LR scaling configuration, tested up to batch size 1024
+    base_lr: 0.006
+    scaling: linear
+    base_batch_size: 128
+
+    # Alternate sqrt LR scaling which has worked well for batch size 512-1024.
+    #base_lr: 0.002
+    #scaling: sqrt
+    #base_batch_size: 32
+
+    n_warmup_epochs: 6
+
+    # You may want to adjust these decay epochs depending on your batch size.
+    # E.g. if training batch size 64 you may want to decay at 16 and 32 epochs.
+    decay_schedule:
+        name: step
+        24: 0.5
+        26: 0.25
+        27: 0.125
+        28: 0.0625
+        # + 4, lr
+        #15: 0.5
+        #17: 0.25
+        #18: 0.125
+        #19: 0.0625
+
+train:
+    loss: mse
+    metrics: ['mae']
+    early_stopping_patience: 8

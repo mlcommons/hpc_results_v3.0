@@ -1,0 +1,52 @@
+# Copyright (c) 2018-2022, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# strong medium scale
+deepcam_pytorch--DGXA100_64x8x2--dryrun:
+  extends: .dr_strong_deepcam_pytorch_dgxa100_job
+deepcam_pytorch--DGXA100_64x8x2--compliance:
+  needs: [deepcam_pytorch--DGXA100_64x8x2--dryrun]
+  extends: .compliance_dgxa100_job
+
+# ================================================================= #
+# strong large scale
+deepcam_pytorch--DGXA100_256x8x1--dryrun:
+  extends: .dr_strong_deepcam_pytorch_dgxa100_job
+deepcam_pytorch--DGXA100_256x8x1--compliance:
+  needs: [deepcam_pytorch--DGXA100_256x8x1--dryrun]
+  extends: .compliance_dgxa100_job
+
+# ================================================================= #
+# weak large scale
+deepcam_pytorch--DGXA100_256x2x8x8_weak--dryrun:
+  extends: .dr_weak_deepcam_pytorch_dgxa100_job
+deepcam_pytorch--DGXA100_256x2x8x8_weak--compliance:
+  needs: [deepcam_pytorch--DGXA100_256x2x8x8_weak--dryrun]
+  extends: .compliance_dgxa100_job
+
+# ================================================================= #
+# weak small scale
+deepcam_pytorch--DGXA100_64x2x8x8_weak--dryrun:
+  extends: .dr_weak_deepcam_pytorch_dgxa100_job
+deepcam_pytorch--DGXA100_64x2x8x8_weak--compliance:
+  needs: [deepcam_pytorch--DGXA100_64x2x8x8_weak--dryrun]
+  extends: .compliance_dgxa100_job
+
+# ================================================================= #
+# weak tiny scale
+deepcam_pytorch--DGXA100_32x2x8x8_weak--dryrun:
+  extends: .dr_weak_deepcam_pytorch_dgxa100_job
+deepcam_pytorch--DGXA100_32x2x8x8_weak--compliance:
+  needs: [deepcam_pytorch--DGXA100_32x2x8x8_weak--dryrun]
+  extends: .compliance_dgxa100_job

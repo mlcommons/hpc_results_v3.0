@@ -1,0 +1,18 @@
+#!/bin/bash
+
+module unload lang
+module load lang/tcsds-1.2.33
+
+#export TFLIB_DIR=${OPT_PATH}/TF220-33
+
+if [ -e /worktmp/TF220-33 ]; then
+    :
+else
+    pushd /worktmp
+    tar xfz /vol0003/ra010011/a04347/COSMOFLOW/opt_tgz/TF220-33_0909.tgz
+    popd
+fi
+export TFLIB_DIR=/worktmp/TF220-33
+
+export LD_LIBRARY_PATH=${TFLIB_DIR}/lib:${LD_LIBRARY_PATH}
+export PATH=${TFLIB_DIR}/bin:${PATH}

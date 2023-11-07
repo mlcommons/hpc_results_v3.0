@@ -1,0 +1,9 @@
+#!/bin/bash
+
+module unload lang
+module load lang/tcsds-1.2.33
+
+export TFLIB_DIR=${OPT_PATH}/TF220
+
+export LD_LIBRARY_PATH=${OPT_PATH}/lib:${LD_LIBRARY_PATH}
+export PATH=${OPT_PATH}/bin:${PATH}

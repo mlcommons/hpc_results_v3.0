@@ -1,0 +1,51 @@
+diff --git a/openfold/openfold/data/tools/kalign.py b/openfold/openfold/data/tools/kalign.py
+index 56141d0..0a5526e 100644
+--- a/openfold/openfold/data/tools/kalign.py
++++ b/openfold/openfold/data/tools/kalign.py
+@@ -93,9 +94,14 @@ class Kalign:
+         )
+
+         try:
+-            retcode = process.wait(timeout=1.0)
++            retcode = process.wait(timeout=30.0)
+         except subprocess.TimeoutExpired:
+             print("Kalign timeout expired!")
++            print(f"Kalign input: {sequences}")
++            print(f"Kalign command: {kalign_cmd}")
++            print("retcode=",retcode)
+             raise RuntimeError("Kalign timeout expired!\n")
+
+         stdout, stderr = process.communicate()
+diff --git a/openfold/train.py b/openfold/train.py
+index 18e11ee..cf07f62 100644
+--- a/openfold/train.py
++++ b/openfold/train.py
+@@ -382,10 +382,14 @@ def validation(
+
+ def training(args: argparse.Namespace) -> None:
+     if args.distributed:
++        os.environ["RANK"] = os.environ["PMI_RANK"]
++        os.environ["WORLD_SIZE"] = os.environ["PMI_SIZE"]
++        os.environ["LOCAL_WORLD_SIZE"] = os.environ["MPI_LOCALNRANKS"]
++        os.environ["LOCAL_RANK"] = os.environ["MPI_LOCALRANKID"]
+         torch.distributed.init_process_group(backend="nccl", init_method="env://")
+
+     if torch.distributed.is_initialized():
+-        # Assuming distributed training:
++        # Assuming distributed training:
+         assert args.distributed is True
+         # https://pytorch.org/docs/stable/elastic/run.html#environment-variables
+         rank = int(os.environ["RANK"])
+@@ -417,7 +421,11 @@ def training(args: argparse.Namespace) -> None:
+         global_batch_size = args.local_batch_size
+
+     # Create output directory:
+-    args.training_dirpath.mkdir(parents=True, exist_ok=True)
++    try:
++        args.training_dirpath.mkdir(parents=True, exist_ok=True)
++    except FileExistsError:
++        print("Folder is already there")
++
+
+     # MLPerf logging setup:
+     mllog_datestamp = os.environ.get("DATESTAMP", "yymmddHHMMSSfffffffff")

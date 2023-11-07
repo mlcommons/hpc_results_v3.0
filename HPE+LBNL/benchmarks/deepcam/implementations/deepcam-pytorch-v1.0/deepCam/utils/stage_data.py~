@@ -1,0 +1,92 @@
+import os
+from glob import glob
+import numpy as np
+import argparse as ap
+import concurrent.futures as cf
+
+
+def load_batch(fnames):
+    return [(x, np.load(x)) for x in files_bulk[batch_start:batch_end]] 
+
+
+def save_batch(output_dir, fdata):
+    for fn, fd in fdata:
+        ofn = os.path.join(output_dir, os.basename(fn))
+        print(f"{fn} -> {ofn}", flush=True)
+        #np.save(ofn, fd)
+        
+
+def stage_data(stage_comm, stage_source_prefix, stage_target_prefix, stage_filter):
+
+    # get comm data
+    comm_size = stage_comm.Get_size()
+    comm_rank = stage_comm.Get_rank()
+
+    
+    # parse directory
+    if comm_rank == 0:
+        files = glob(os.path.join(stage_source_prefix, stage_filter))
+    else:
+        files = None
+
+    # communicate list of files
+    files = comm.bcast(files, 0)
+        
+    # shard files into bulk and remainder:
+    num_files = len(files)
+    num_files_per_shard = num_files // comm_size
+    files_bulk = files[:num_files_per_shard * comm_size]
+    files_remainder = files[num_files_per_shard * comm_size:]
+    
+    # now, let's take care of the bulk.
+    batch_size = args.batch_size
+    num_batches = (num_files_per_shard + batch_size -1) // batch_size
+
+    # preload first batch here
+    fdata_next = load_batch(files_bulk[0:min(num_files_per_shard, batch_size)])
+    for bid in range(1, num_batches):
+        # reset fdata
+        fdata = fdata_next
+        
+        # get next batch
+        batch_start = bid * batch_size
+        batch_end = min(batch_start + batch_size, num_files_per_shard)
+        fdata_next = load_batch(files_bulk[batch_start:batch_end])
+        
+        # communicate to everybody
+        fdata_save = comm.alltoall(fdata)
+        
+        # store locally
+        output_dir = os.path.join(stage_target_prefix, os.path.dirname(filt))
+        save_batch(output_dir, fdata_save)
+        
+        break
+
+
+def stage_data_helper(global_comm, instance_comm, pargs):
+    # - Every instance needs all the data, so we need inum replicas.
+    # - Every rank irank within an instance can stage data_size / isize of the total data
+    # - Since there are num_instances ranks working on the same data, we could shard this among
+    # those ranks too
+    gsize = global_comm.Get_size()
+    grank = global_comm.Get_rank()
+    isize = instance_comm.Get_size()
+
+    # create staging filter:
+    if (pargs.data_format == "dali-numpy") or (pargs.data_format == 'dali-es'):
+        filter_list = ['train/data-*.npy', 'train/label-*.npy',
+                       'validation/data-*.npy', 'validation/label-*.npy']
+    elif pargs.data_format == "dali-dummy":
+        return
+    else:
+        raise NotImplementedError(f"Error, data-format {pargs.data_format} not implemented for staging")
+
+    # split the global communicator according to irank:
+    stage_comm = global_comm.Split()
+    
+    for filt in filter_list:
+        stage_source_directory = os.path.join(pargs.data_dir_prefix, os.path.dirname(filt))
+        stage_target_directory = os.path.join(pargs.stage_dir_prefix, os.path.dirname(filt))
+        stage_data(stage_comm, stage_source_directory, stage_target_directory, os.path.basename(filt))
+
+        

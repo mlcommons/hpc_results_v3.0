@@ -1,0 +1,39 @@
+# Parameter file
+
+test -z "$OMPI_COMM_WORLD_RANK" && OMPI_COMM_WORLD_RANK=0
+
+PARAMS=(
+    # config file. Don't remove!
+    $ConfigYaml
+
+    --seed _SEED_
+    --target-mae 0.124
+
+    # don't change
+    -v
+    # --rank-gpu
+    -d
+
+    # for data
+    --data-dir $DataDir
+    # auto mixed precision
+    # --mixed_precision
+    # for staged data
+    --stage-dir $LocalDataDir
+    # batch size for validation
+    # --validation-batch-size 4
+    # duplicated staging
+    #--train-staging-dup-factor $TrainStagingDupFactor
+    --train-staging-dup-factor 1
+    --output-dir $LOGDIR
+    --ready-dir $ReadyDir
+    --num-instances $NumInstances
+    --instance-num $InstanceNum
+#    --prestaged
+    --prof-step 0
+    --num_mpiar_tensors 999
+    --th-inter 1
+    --th-intra 48
+)
+
+# End of file

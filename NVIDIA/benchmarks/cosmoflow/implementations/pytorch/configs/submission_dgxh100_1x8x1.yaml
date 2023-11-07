@@ -1,0 +1,55 @@
+model:
+  conv_layer_count: 5
+  conv_layer_kernel: 3
+  conv_layer_filters: 32
+
+  layout: "NDHWC"
+  script: False
+  cuda_graph: True
+
+  training:
+    target_score: 0.124
+    dropout_rate: 0.5
+    weight_decay: 0
+
+    optimizer: "fixed_sgd"
+
+    momentum: 0.9
+    amp: True
+
+    lr_sched:
+      lr: 0.018
+      init_lr: 0.001
+      warmup_epochs: 0
+
+      decay_steps: [20, 26, 34]
+      decay_values: [0.5, 0.25, 0.125]
+
+    train_epochs: 1
+
+data:
+  batch_size: 1
+  dataset: "synthetic"
+
+  apply_log: True
+  shuffle: True
+  preshuffle: True
+  shard_type: "local"
+  shard_multiplier: 1
+
+  root_dir: "/dataset"
+  stage: "/staging_area"
+  stage_mode: "thread"
+  stage_workers: 32
+
+  sample_shape: [128, 128, 128, 4]
+  target_shape: [4]
+
+  dali_threads: 4
+  data_layout: "NDHWC"
+
+  train_samples: 512
+  valid_samples: 512
+
+profile: False
+
